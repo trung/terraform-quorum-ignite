@@ -1,0 +1,236 @@
+name: Verify examples
+on: [push]
+env:
+  TERRAFORM_VERSION: 0.12.24
+jobs:
+  docker-compose:
+    name: Verify docker-compose example with ${{ matrix.consensus }}
+    strategy:
+      matrix:
+        consensus: ["istanbul", "raft"]
+    runs-on: ubuntu-latest
+    env:
+      WORKING_DIR: 'examples/docker-compose'
+      TF_VAR_consensus: ${{ matrix.consensus }}
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v2
+      - name: 'Download terraform-provider-quorum'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          mkdir -p terraform.d/plugins/linux_amd64
+          wget https://github.com/terraform-providers/terraform-provider-quorum/releases/download/v1.0.0-beta.1/terraform-provider-quorum_1.0.0-beta.1_linux_amd64.zip -O provider.zip
+          unzip provider.zip -d terraform.d/plugins/linux_amd64/
+      - name: 'Terraform Format'
+        uses: hashicorp/terraform-github-actions@master
+        with:
+          tf_actions_working_dir: ${{ env.WORKING_DIR }}
+          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
+          tf_actions_subcommand: 'fmt'
+      - name: 'Terraform Init'
+        uses: hashicorp/terraform-github-actions@master
+        with:
+          tf_actions_working_dir: ${{ env.WORKING_DIR }}
+          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
+          tf_actions_subcommand: 'init'
+      - name: 'Terraform Validate'
+        uses: hashicorp/terraform-github-actions@master
+        with:
+          tf_actions_working_dir: ${{ env.WORKING_DIR }}
+          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
+          tf_actions_subcommand: 'validate'
+      - name: 'Terraform Plan'
+        uses: hashicorp/terraform-github-actions@master
+        with:
+          tf_actions_working_dir: ${{ env.WORKING_DIR }}
+          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
+          tf_actions_subcommand: 'plan'
+      - name: 'Terraform Apply'
+        uses: hashicorp/terraform-github-actions@master
+        env:
+          TF_CLI_ARGS: '--auto-approve'
+        with:
+          tf_actions_working_dir: ${{ env.WORKING_DIR }}
+          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
+          tf_actions_subcommand: 'apply'
+      - name: 'Start the network'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          docker-compose -f build/my-network/docker-compose.yml up -d
+          echo "Waiting 10s ..." && sleep 10
+          all_up="false"
+          while [ "$all_up" == "false" ]; do
+            all_up="true"
+            for c in `docker ps -a --format "{{ .Names }}"`; do
+              s=$(docker inspect -f "{{ .State.Status }}" $c)
+              h=$(docker inspect -f "{{ .State.Health.Status }}" $c)
+              echo "   -> $c (status=$s, health=$h)"
+              if [ "$h" == "starting" ]; then
+                all_up="false"
+              fi
+            done
+            if [ "$all_up" == "true" ]; then
+              break
+            fi
+            echo "Waiting 3s ..." && sleep 3
+          done
+          echo "" && docker ps -a && echo ""
+          unhealthy_containers=$(docker ps -a --format "{{ .Names }},{{ .Status }}" | grep -v healthy || echo "")
+          if [ "$unhealthy_containers" != "" ]; then
+            echo "Unhealthy containers: $unhealthy_containers"
+            exit 1
+          fi
+      - name: 'Check the network'
+        run: |
+          test_func="admin.peers.length"
+          expected_size=3
+          if [ "${{ matrix.consensus }}" == "raft" ]; then
+            test_func="raft.cluster.length"
+            expected_size=4
+          fi
+          actual_size=$(docker exec my-network-node0 geth attach /data/qdata/geth.ipc --exec "$test_func")
+          echo "$test_func returns $actual_size"
+          if [ $actual_size -ne $expected_size ]; then
+            echo "expected $expected_size but got $actual_size"
+          fi
+      - name: 'Stop the network'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          docker-compose -f build/my-network/docker-compose.yml down
+      - name: 'Terraform Destroy'
+        uses: hashicorp/terraform-github-actions@master
+        env:
+          TF_CLI_ARGS: '--auto-approve'
+        with:
+          tf_actions_working_dir: ${{ env.WORKING_DIR }}
+          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
+          tf_actions_subcommand: 'destroy'
+  notify:
+    if: always()
+    name: Notify
+    needs:
+      - docker-compose
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare Slack message
+        id: status
+        uses: actions/github-script@0.8.0
+        with:
+          script: |
+            ////////////////////////////////////
+            // retrieve workflow run data
+            ////////////////////////////////////
+            console.log("get workflow run")
+            const wf_run = await github.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: ${{ github.run_id }}
+            })
+            console.log(wf_run.data)
+            console.log("get jobs for workflow run:", wf_run.data.jobs_url)
+            const jobs_response = await github.request(wf_run.data.jobs_url)
+            ////////////////////////////////////
+            // build slack notification message
+            ////////////////////////////////////
+            // some utility functions
+            var date_diff_func = function(start, end) {
+                var duration = end - start
+                // format the duration
+                var delta = duration / 1000
+                var days = Math.floor(delta / 86400)
+                delta -= days * 86400
+                var hours = Math.floor(delta / 3600) % 24
+                delta -= hours * 3600
+                var minutes = Math.floor(delta / 60) % 60
+                delta -= minutes * 60
+                var seconds = Math.floor(delta % 60)
+                var format_func = function(v, text, check) {
+                    if (v <= 0 && check) {
+                        return ""
+                    } else {
+                        return v + text
+                    }
+                }
+                return format_func(days, "d", true) + format_func(hours, "h", true) + format_func(minutes, "m", true) + format_func(seconds, "s", false)
+            }
+            var status_icon_func = function(s) {
+                switch (s) {
+                case "w_success":
+                    return ":white_check_mark:"
+                case "w_failure":
+                    return ":no_entry:"
+                case "w_cancelled":
+                    return ":warning:"
+                case "success":
+                    return "\u2713"
+                case "failure":
+                    return "\u2717"
+                default:
+                    return "\u20e0"
+                }
+            }
+            const commit = "${{ github.sha }}".substr(0, 6)
+            var pr = ""
+            for (p of wf_run.data.pull_requests) {
+              pr += ",<"+ p.url + "|#" + p.number + ">"
+            }
+            if (pr != "") {
+              pr = "for " + pr.substr(1)
+            }
+            // build the message
+            var fields = []
+            var is_wf_success = true
+            var is_wf_failure = false
+            for (j of jobs_response.data.jobs) {
+                console.log(j.name, ":", j.status, j.conclusion, j.started_at, j.completed_at)
+                // ignore the current job running this script
+                if (j.status != "completed") {
+                    continue
+                }
+                if (j.conclusion != "success") {
+                  is_wf_success = false
+                }
+                if (j.conclusion == "failure") {
+                  is_wf_failure = true
+                }
+                fields.push({
+                    type: "mrkdwn",
+                    text: status_icon_func(j.conclusion) + " <" + j.html_url + "|" + j.name + ">\n  \u21b3 completed in " + date_diff_func(new Date(j.started_at), new Date(j.completed_at))
+                })
+            }
+            var workflow_status = "w_cancelled"
+            if (is_wf_success) {
+              workflow_status = "w_success"
+            } else if (is_wf_failure) {
+              workflow_status = "w_failure"
+            }
+            var slack_msg = {
+                blocks: [
+                    {
+                        type: "section",
+                        text: {
+                            type: "mrkdwn",
+                            text: "<https://github.com/${{ github.repository }}|*${{ github.repository }}*>\nfrom *${{ github.ref }}@" + commit + "*"
+                        }
+                    },
+                    {
+                        type: "section",
+                        text: {
+                            type: "mrkdwn",
+                            text: status_icon_func(workflow_status) + " *${{ github.workflow }}* " + pr + "\nWorkflow run <" + wf_run.data.html_url + "|#${{ github.run_number }}> completed in " + date_diff_func(new Date(wf_run.data.created_at), new Date(wf_run.data.updated_at))
+                        }
+                    },
+                    {
+                        type: "divider"
+                    },
+                    {
+                        type: "section",
+                        fields: fields
+                    }
+                ]
+            }
+            return slack_msg
+      - name: Send to Slack
+        if: success()
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL}} -H "Content-type: application/json" --data '${{ steps.status.outputs.result }}'
