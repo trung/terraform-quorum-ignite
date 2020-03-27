@@ -1,14 +1,25 @@
+locals {
+  node_indices        = range(length(var.geth_datadirs))
+  container_tm_dir    = "/data/tm"
+  container_qdata_dir = "/data/qdata"
+  container_tm_ipc    = "${local.container_tm_dir}/tm.ipc"
+
+  geth_consensus_args = [for idx in local.node_indices :
+    (var.consensus == "istanbul" ? "--istanbul.blockperiod 1 --syncmode full --mine --minerthreads 1" : "--raft --raftport ${var.geth_networking[idx].port.raft}")
+  ]
+}
+
 resource "local_file" "docker-compose" {
-  filename = format("%s/docker-compose.yml", local.out_dir)
+  filename = format("%s/docker-compose.yml", var.output_directory)
   content  = <<-EOF
 version: "3.6"
 x-quorum-def:
   &quorum-def
   restart: "no"
   expose:
-    - "${local.container_p2p_port}"
+    - ${var.geth.container.port.p2p}
   healthcheck:
-    test: ["CMD", "nc", "-vz", "localhost", "${local.container_rpc_port}"]
+    test: ["CMD", "nc", "-vz", "localhost", "${var.geth.container.port.http}"]
     interval: 3s
     timeout: 3s
     retries: 10
@@ -20,7 +31,7 @@ x-quorum-def:
       UDS_WAIT=10
       for i in $$(seq 1 100)
       do
-        result=$$(wget --timeout $$UDS_WAIT -qO- --proxy off $$TXMANAGER_IP:${local.container_tm_p2p_port}/upcheck)
+        result=$$(wget --timeout $$UDS_WAIT -qO- --proxy off $$TXMANAGER_IP:${var.tessera.container.port.p2p}/upcheck)
         echo "$$result"
         if [ -S $$PRIVATE_CONFIG ] && [ "I'm up!" = "$$result" ]; then
           break
@@ -34,23 +45,23 @@ x-quorum-def:
         --datadir $$DDIR \
         --nodiscover \
         --verbosity 5 \
-        --networkid ${local.network_id} \
+        --networkid ${var.network_id} \
         --nodekeyhex $$NODEKEY_HEX \
         --rpc \
         --rpcaddr 0.0.0.0 \
-        --rpcport ${local.container_rpc_port} \
+        --rpcport ${var.geth.container.port.http} \
         --rpcapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum,${var.consensus} \
-        --port ${local.container_p2p_port} \
+        --port ${var.geth.container.port.p2p} \
         --permissioned \
-        --ethstats "Node$$NODE_ID:${random_id.ethstat_secret.hex}@${local.ethstats_ip}:${local.container_ethstats_port}" \
+        --ethstats "Node$$NODE_ID:${var.ethstats_secret}@${var.ethstats_ip}:${var.ethstats.container.port}" \
         --unlock 0 \
-        --password ${local.container_qdata_dir}/${local.password_file_name} \
+        --password ${local.container_qdata_dir}/${var.password_file_name} \
         $$GETH_ARGS
 x-tx-manager-def:
   &tx-manager-def
   expose:
-    - ${local.container_tm_p2p_port}
-    - ${local.container_tm_third_party_port}
+    - ${var.tessera.container.port.p2p}
+    - ${var.tessera.container.port.thirdparty}
   restart: "no"
   healthcheck:
     test: ["CMD-SHELL", "[ -S ${local.container_tm_dir}/tm.ipc ] || exit 1"]
@@ -78,71 +89,71 @@ services:
 %{for i in local.node_indices~}
   node${i}:
     << : *quorum-def
-    image: ${local.quorum_docker_image}
-    container_name: ${local.network_name}-node${i}
+    image: ${var.geth.container.image}
+    container_name: ${var.network_name}-node${i}
     hostname: node${i}
     ports:
-      - ${format("%d:%d", local.host_rpc_port_start + i, local.container_rpc_port)}
+      - ${format("%d:%d", var.geth.host.port.http_start + i, var.geth.container.port.http)}
     volumes:
       - vol${i}:/data
-      - .${trimprefix(element(module.quorum.data_dirs, i), local.out_dir)}:${local.container_qdata_dir}
-      - .${trimprefix(element(module.quorum.tm_dirs, i), local.out_dir)}:${local.container_tm_dir}
+      - .${trimprefix(element(var.geth_datadirs, i), var.output_directory)}:${local.container_qdata_dir}
+      - .${trimprefix(element(var.tessera_datadirs, i), var.output_directory)}:${local.container_tm_dir}
     depends_on:
       - tm${i}
       - ethstats
     networks:
-      ${local.network_name}-net:
-        ipv4_address: ${local.geth_networking[i].ip.private}
+      ${var.network_name}-net:
+        ipv4_address: ${var.geth_networking[i].ip.private}
         aliases:
           - node${i}
     environment:
       - PRIVATE_CONFIG=${local.container_tm_ipc}
       - GETH_ARGS=${local.geth_consensus_args[i]}
-      - TXMANAGER_IP=${local.tm_networking[i].ip.private}
+      - TXMANAGER_IP=${var.tm_networking[i].ip.private}
       - NODE_ID=${format("%d", i + 1)}
       - DDIR=${local.container_qdata_dir}
-      - NODEKEY_HEX=${element(module.quorum.node_keys_hex, i)}
+      - NODEKEY_HEX=${element(var.node_keys_hex, i)}
   tm${i}:
     << : *tx-manager-def
-    image: ${local.tessera_docker_image}
-    container_name: ${local.network_name}-tm${i}
+    image: ${var.tessera.container.image}
+    container_name: ${var.network_name}-tm${i}
     hostname: txmanager${i}
     ports:
-      - ${format("%d:%d", local.host_tm_thirdparty_port_start + i, local.container_tm_third_party_port)}
+      - ${format("%d:%d", var.tessera.host.port.thirdparty_start + i, var.tessera.container.port.thirdparty)}
     volumes:
       - vol${i}:/data
-      - .${trimprefix(element(module.quorum.tm_dirs, i), local.out_dir)}:${local.container_tm_dir}
+      - .${trimprefix(element(var.tessera_datadirs, i), var.output_directory)}:${local.container_tm_dir}
     networks:
-      ${local.network_name}-net:
-        ipv4_address: ${local.tm_networking[i].ip.private}
+      ${var.network_name}-net:
+        ipv4_address: ${var.tm_networking[i].ip.private}
 %{endfor~}
   ethstats:
-    container_name: ${local.network_name}-ethstats
+    container_name: ${var.network_name}-ethstats
     hostname: ethstats
     image: "puppeth/ethstats:latest"
     expose:
-      - ${local.container_ethstats_port}
+      - ${var.ethstats.container.port}
     ports:
-      - ${local.host_ethstats_port}:${local.container_ethstats_port}
+      - ${var.ethstats.host.port}:${var.ethstats.container.port}
     environment:
-      - WS_SECRET=${random_id.ethstat_secret.hex}
+      - WS_SECRET=${var.ethstats_secret}
     healthcheck:
-      test: ["CMD", "nc", "-vz", "localhost", "${local.container_ethstats_port}"]
+      test: ["CMD", "nc", "-vz", "localhost", "${var.ethstats.container.port}"]
       interval: 3s
       timeout: 3s
       retries: 10
       start_period: 3s
     networks:
-      ${local.network_name}-net:
-        ipv4_address: ${local.ethstats_ip}
+      ${var.network_name}-net:
+        ipv4_address: ${var.ethstats_ip}
 networks:
-  ${local.network_name}-net:
-    name: ${local.network_name}-net
+  ${var.network_name}-net:
+    name: ${var.network_name}-net
     driver: bridge
     ipam:
       driver: default
       config:
-      - subnet: ${local.container_network_cidr}
+      - subnet: ${var.network_cidr}
 volumes:
 %{for i in local.node_indices~}
   "vol${i}":
