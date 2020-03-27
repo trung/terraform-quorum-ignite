@@ -3,60 +3,53 @@ on: [push]
 env:
   TERRAFORM_VERSION: 0.12.24
 jobs:
-  docker-compose:
-    name: Verify docker-compose example with ${{ matrix.consensus }}
+  verify:
+    name: Verify ${{ matrix.example }} example with ${{ matrix.consensus }}
     strategy:
+      fail-fast: false
       matrix:
         consensus: ["istanbul", "raft"]
+        example: ["docker-compose", "docker"]
     runs-on: ubuntu-latest
     env:
-      WORKING_DIR: 'examples/docker-compose'
+      WORKING_DIR: 'examples/${{ matrix.example }}'
       TF_VAR_consensus: ${{ matrix.consensus }}
     steps:
       - name: 'Checkout'
         uses: actions/checkout@v2
-      - name: 'Download terraform-provider-quorum'
+      - name: 'Setup'
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           mkdir -p terraform.d/plugins/linux_amd64
+          mkdir -p bin
+          wget https://releases.hashicorp.com/terraform/${{ env.TERRAFORM_VERSION }}/terraform_${{ env.TERRAFORM_VERSION }}_linux_amd64.zip -O bin/terraform.zip
+          unzip bin/terraform.zip -d bin/
+          bin="$(pwd)/bin"
           wget https://github.com/terraform-providers/terraform-provider-quorum/releases/download/v1.0.0-beta.1/terraform-provider-quorum_1.0.0-beta.1_linux_amd64.zip -O provider.zip
           unzip provider.zip -d terraform.d/plugins/linux_amd64/
-      - name: 'Terraform Format'
-        uses: hashicorp/terraform-github-actions@master
-        with:
-          tf_actions_working_dir: ${{ env.WORKING_DIR }}
-          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
-          tf_actions_subcommand: 'fmt'
-      - name: 'Terraform Init'
-        uses: hashicorp/terraform-github-actions@master
-        with:
-          tf_actions_working_dir: ${{ env.WORKING_DIR }}
-          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
-          tf_actions_subcommand: 'init'
-      - name: 'Terraform Validate'
-        uses: hashicorp/terraform-github-actions@master
-        with:
-          tf_actions_working_dir: ${{ env.WORKING_DIR }}
-          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
-          tf_actions_subcommand: 'validate'
+          echo "::add-path::$bin"
+      - name: 'Terraform Init, Format and Validate'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform init
+          terraform fmt
+          terraform validate
       - name: 'Terraform Plan'
-        uses: hashicorp/terraform-github-actions@master
-        with:
-          tf_actions_working_dir: ${{ env.WORKING_DIR }}
-          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
-          tf_actions_subcommand: 'plan'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform plan
       - name: 'Terraform Apply'
-        uses: hashicorp/terraform-github-actions@master
-        env:
-          TF_CLI_ARGS: '--auto-approve'
-        with:
-          tf_actions_working_dir: ${{ env.WORKING_DIR }}
-          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
-          tf_actions_subcommand: 'apply'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform apply --auto-approve
       - name: 'Start the network'
+        if: matrix.example == 'docker-compose'
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           docker-compose -f build/my-network/docker-compose.yml up -d
+      - name: 'Wait for the network to be up'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
           echo "Waiting 10s ..." && sleep 10
           all_up="false"
           while [ "$all_up" == "false" ]; do
@@ -78,6 +71,16 @@ jobs:
           unhealthy_containers=$(docker ps -a --format "{{ .Names }},{{ .Status }}" | grep -v healthy || echo "")
           if [ "$unhealthy_containers" != "" ]; then
             echo "Unhealthy containers: $unhealthy_containers"
+            SAVEIFS=$IFS                  # Save current IFS
+            IFS=$'\n'                     # Change IFS to new line
+            names=($unhealthy_containers) # split to array $names
+            IFS=$SAVEIFS                  # Restore IFS
+            for (( i=0; i<${#names[@]}; i++ ))
+            do
+              c=${names[$i]%%,*} # extract the container names only
+              echo "> Logs for container $c"
+              docker logs $c
+            done
             exit 1
           fi
       - name: 'Check the network'
@@ -94,22 +97,15 @@ jobs:
             echo "expected $expected_size but got $actual_size"
           fi
       - name: 'Stop the network'
+        if: matrix.example == 'docker-compose'
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           docker-compose -f build/my-network/docker-compose.yml down
-      - name: 'Terraform Destroy'
-        uses: hashicorp/terraform-github-actions@master
-        env:
-          TF_CLI_ARGS: '--auto-approve'
-        with:
-          tf_actions_working_dir: ${{ env.WORKING_DIR }}
-          tf_actions_version: ${{ env.TERRAFORM_VERSION }}
-          tf_actions_subcommand: 'destroy'
   notify:
     if: always()
     name: Notify
     needs:
-      - docker-compose
+      - verify
     runs-on: ubuntu-latest
     steps:
       - name: Prepare Slack message

@@ -24,8 +24,8 @@ module "network" {
   tm_networking   = module.helper.tm_networking
 }
 
-module "docker-compose" {
-  source = "../../modules/docker-compose"
+module "docker" {
+  source = "../../modules/docker"
 
   consensus       = module.helper.consensus
   geth            = module.helper.geth_docker_config
@@ -38,7 +38,6 @@ module "docker-compose" {
 
   network_name       = module.network.network_name
   network_id         = module.network.network_id
-  output_directory   = module.network.generated_dir
   node_keys_hex      = module.network.node_keys_hex
   password_file_name = module.network.password_file_name
   geth_datadirs      = module.network.data_dirs
