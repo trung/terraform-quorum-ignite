@@ -27,4 +27,6 @@ my-network/
 - `application-my-network.yml`: metadata information about the network including Ethereum accounts, endpoints and Tessera public keys
 - `genesis.json`: Genesis file which is used to do `geth init` on invididual node
 
+Two submodules: `docker` and `docker-compose` are used to spin up a Quorum network in Docker.
+
 Refer to [examples](examples) folder for getting started with this module

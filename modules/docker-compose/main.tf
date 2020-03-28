@@ -52,12 +52,18 @@ x-quorum-def:
         --rpcaddr 0.0.0.0 \
         --rpcport ${var.geth.container.port.http} \
         --rpcapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum,${var.consensus} \
+%{ if var.geth.container.port.ws != -1 ~}
+        --ws \
+        --wsaddr 0.0.0.0 \
+        --wsport ${var.geth.container.port.ws} \
+        --wsapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum,${var.consensus} \
+%{ endif ~}
         --port ${var.geth.container.port.p2p} \
         --permissioned \
         --ethstats "Node$$NODE_ID:${var.ethstats_secret}@${var.ethstats_ip}:${var.ethstats.container.port}" \
         --unlock 0 \
         --password ${local.container_qdata_dir}/${var.password_file_name} \
-        $$GETH_ARGS
+        ${var.additional_geth_args} $$GETH_ARGS
 x-tx-manager-def:
   &tx-manager-def
   expose:
@@ -95,6 +101,9 @@ services:
     hostname: node${i}
     ports:
       - ${format("%d:%d", var.geth.host.port.http_start + i, var.geth.container.port.http)}
+%{ if var.geth.container.port.ws != -1 ~}
+      - ${format("%d:%d", var.geth.host.port.ws_start + i, var.geth.container.port.ws)}
+%{ endif ~}
     volumes:
       - vol${i}:/data
       - .${trimprefix(element(var.geth_datadirs, i), var.output_directory)}:${local.container_qdata_dir}

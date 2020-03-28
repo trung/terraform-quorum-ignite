@@ -10,9 +10,12 @@ resource "docker_container" "geth" {
   ports {
     internal = var.geth.container.port.raft
   }
-  ports {
-    internal = var.geth.container.port.http
-    external = var.geth.host.port.http_start + count.index
+  dynamic "ports" {
+    for_each = var.geth.container.port.ws == -1 ? [{ internal = var.geth.container.port.http, external = var.geth.host.port.http_start + count.index }] : [{ internal = var.geth.container.port.http, external = var.geth.host.port.http_start + count.index }, { internal = var.geth.container.port.ws, external = var.geth.host.port.ws_start + count.index }]
+    content {
+      internal = ports.value["internal"]
+      external = ports.value["external"]
+    }
   }
   volumes {
     container_path = "/data"
@@ -84,11 +87,17 @@ geth \
   --rpcaddr 0.0.0.0 \
   --rpcport ${var.geth_networking[count.index].port.http.internal} \
   --rpcapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum,${var.consensus} \
+%{ if var.geth.container.port.ws != -1 ~}
+  --ws \
+  --wsaddr 0.0.0.0 \
+  --wsport ${var.geth.container.port.ws} \
+  --wsapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum,${var.consensus} \
+%{ endif ~}
   --port ${var.geth_networking[count.index].port.p2p} \
   --permissioned \
   --ethstats "Node${count.index + 1}:${var.ethstats_secret}@${var.ethstats_ip}:${var.ethstats.container.port}" \
   --unlock 0 \
-  --password /data/qdata/${var.password_file_name} \
+  --password /data/qdata/${var.password_file_name} ${var.additional_geth_args} \
   ${var.consensus == "istanbul" ? "--istanbul.blockperiod 1 --syncmode full --mine --minerthreads 1" : format("--raft --raftport %d", var.geth_networking[count.index].port.raft)}
 EOF
   }

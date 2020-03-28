@@ -2,6 +2,11 @@ variable "network_name" {
   description = "Name of the network"
 }
 
+variable "additional_geth_args" {
+  default = ""
+  description = "Additional geth args for all nodes"
+}
+
 variable "geth_datadirs" {
   type        = list(string)
   description = "List of node's datadirs"
