@@ -1,5 +1,9 @@
 name: Verify examples
-on: [push]
+on:
+  push:
+    paths:
+      - '**/.tf'
+      - '**/.yml'
 env:
   TERRAFORM_VERSION: 0.12.24
 jobs:
