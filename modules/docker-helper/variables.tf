@@ -10,7 +10,7 @@ variable "geth" {
   type = object({
     container = object({
       image = string
-      port  = object({ raft_start = number, p2p = number, http = number, ws = number })
+      port  = object({ raft = number, p2p = number, http = number, ws = number })
     })
     host = object({
       port = object({ http_start = number, ws_start = number })
@@ -19,7 +19,7 @@ variable "geth" {
   default = {
     container = {
       image = "quorumengineering/quorum:2.5.0"
-      port  = { raft_start = 50400, p2p = 21000, http = 8545, ws = -1 }
+      port  = { raft = 50400, p2p = 21000, http = 8545, ws = -1 }
     }
     host = {
       port = { http_start = 21000, ws_start = -1 }

@@ -21,7 +21,7 @@ variable "geth" {
   type = object({
     container = object({
       image = string
-      port  = object({ raft_start = number, p2p = number, http = number, ws = number })
+      port  = object({ raft = number, p2p = number, http = number, ws = number })
     })
     host = object({
       port = object({ http_start = number, ws_start = number })

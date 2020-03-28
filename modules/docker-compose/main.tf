@@ -18,6 +18,7 @@ x-quorum-def:
   restart: "no"
   expose:
     - ${var.geth.container.port.p2p}
+    - ${var.geth.container.port.raft}
   healthcheck:
     test: ["CMD", "nc", "-vz", "localhost", "${var.geth.container.port.http}"]
     interval: 3s

@@ -8,8 +8,7 @@ resource "docker_container" "geth" {
     internal = var.geth.container.port.p2p
   }
   ports {
-    internal = var.geth.container.port.raft_start + count.index
-    external = var.geth.container.port.raft_start + count.index
+    internal = var.geth.container.port.raft
   }
   ports {
     internal = var.geth.container.port.http

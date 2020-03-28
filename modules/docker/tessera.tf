@@ -4,6 +4,8 @@ resource "docker_container" "tessera" {
   image    = docker_image.tessera.name
   hostname = format("tm%d", count.index)
   restart  = "no"
+  publish_all_ports = false
+  must_run = true
   ports {
     internal = var.tessera.container.port.p2p
   }
