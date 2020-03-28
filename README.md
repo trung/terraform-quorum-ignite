@@ -2,7 +2,10 @@
 
 # Quorum Ignite Module
 
-A Terraform module that uses [`terraform-provider-quorum`](https://github.com/terraform-providers/terrafomr-provider-quorum) to bootstrap resources locally in order to run a Quorum network from scratch.
+![Verify examples](https://github.com/trung/terraform-quorum-ignite/workflows/Verify%20examples/badge.svg)
+
+A Terraform module that uses [`terraform-provider-quorum`](https://github.com/terraform-providers/terrafomr-provider-quorum) 
+to bootstrap resources locally in order to run a [Quorum](https://github.com/jpmorganchase/quorum) network from scratch.
 
 The generated resources are organized in a folder (created from `network_name` input) under `output_dir` folder.
 
