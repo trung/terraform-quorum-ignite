@@ -42,11 +42,11 @@ quorum:
   nodes:
 %{for i in data.null_data_source.meta[*].inputs.idx~}
     ${format("Node%d:", i + 1)}
-      named-account:
+      account-aliases:
 %{for idx, k in local.named_accounts_alloc[i]~}
         ${k}: ${element(quorum_bootstrap_keystore.accountkeys-generator[i].account.*.address, idx)}
 %{endfor~}
-      named-privacy-address:
+      privacy-address-aliases:
 %{for k in local.tm_named_keys_alloc[i]~}
         ${k}: ${element(quorum_transaction_manager_keypair.tm.*.public_key_b64, index(local.tm_named_keys_all, k))}
 %{endfor~}
