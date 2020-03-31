@@ -174,7 +174,7 @@ resource "local_file" "tmconfigs-generator" {
             "communicationType" : "REST"
         }
     ],
-    "peer": [${join(",", formatlist("{\"url\" : \"http://%s:%d\"}", var.tm_networking[count.index].ip.private, var.tm_networking[count.index].port.p2p))}],
+    "peer": [${join(",", formatlist("{\"url\" : \"http://%s:%d\"}", var.tm_networking[*].ip.private, var.tm_networking[*].port.p2p))}],
     "keys": {
       "passwords": [],
       "keyData": [${data.null_data_source.meta[count.index].inputs.tmKeys}]
