@@ -96,7 +96,7 @@ services:
 %{for i in local.node_indices~}
   node${i}:
     << : *quorum-def
-    image: ${var.geth.container.image}
+    image: ${var.geth.container.image.name}
     container_name: ${var.network_name}-node${i}
     hostname: node${i}
     ports:
@@ -125,7 +125,7 @@ services:
       - NODEKEY_HEX=${element(var.node_keys_hex, i)}
   tm${i}:
     << : *tx-manager-def
-    image: ${var.tessera.container.image}
+    image: ${var.tessera.container.image.name}
     container_name: ${var.network_name}-tm${i}
     hostname: txmanager${i}
     ports:
@@ -140,7 +140,7 @@ services:
   ethstats:
     container_name: ${var.network_name}-ethstats
     hostname: ethstats
-    image: "puppeth/ethstats:latest"
+    image: ${var.ethstats.container.image.name}
     expose:
       - ${var.ethstats.container.port}
     ports:

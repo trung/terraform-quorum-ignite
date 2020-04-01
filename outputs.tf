@@ -25,3 +25,7 @@ output "password_file_name" {
 output "network_name" {
   value = local.network_name
 }
+
+output "application_yml_file" {
+  value = local_file.configuration.filename
+}

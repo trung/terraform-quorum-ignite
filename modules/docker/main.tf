@@ -1,5 +1,7 @@
 locals {
-  number_of_nodes = 4
+  number_of_nodes        = 4
+  container_geth_datadir = "/data/qdata"
+  container_tm_datadir   = "/data/tm"
 }
 
 resource "docker_network" "quorum" {

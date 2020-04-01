@@ -22,11 +22,11 @@ resource "docker_container" "geth" {
     volume_name    = docker_volume.shared_volume[count.index].name
   }
   volumes {
-    container_path = "/data/qdata"
+    container_path = local.container_geth_datadir
     host_path      = var.geth_datadirs[count.index]
   }
   volumes {
-    container_path = "/data/tm"
+    container_path = local.container_tm_datadir
     host_path      = var.tessera_datadirs[count.index]
   }
   depends_on = [docker_container.ethstats]
@@ -35,7 +35,7 @@ resource "docker_container" "geth" {
     ipv4_address = var.geth_networking[count.index].ip.private
     aliases      = [format("node%d", count.index)]
   }
-  env = ["PRIVATE_CONFIG=/data/tm/tm.ipc"]
+  env = ["PRIVATE_CONFIG=${local.container_tm_datadir}/tm.ipc"]
   healthcheck {
     test         = ["CMD", "nc", "-vz", "localhost", var.geth_networking[count.index].port.http.internal]
     interval     = "3s"
@@ -47,12 +47,12 @@ resource "docker_container" "geth" {
     "/bin/sh",
     "-c",
     <<RUN
-    /data/qdata/wait-for-tessera.sh
-    /data/qdata/start-geth.sh
+    ${local.container_geth_datadir}/wait-for-tessera.sh
+    ${local.container_geth_datadir}/start-geth.sh
 RUN
   ]
   upload {
-    file       = "/data/qdata/wait-for-tessera.sh"
+    file       = "${local.container_geth_datadir}/wait-for-tessera.sh"
     executable = true
     content    = <<EOF
 URL="${var.tm_networking[count.index].ip.private}:${var.tessera.container.port.p2p}/upcheck"
@@ -73,12 +73,12 @@ EOF
   }
 
   upload {
-    file       = "/data/qdata/start-geth.sh"
+    file       = "${local.container_geth_datadir}/start-geth.sh"
     executable = true
     content    = <<EOF
 geth \
   --identity Node${count.index + 1} \
-  --datadir /data/qdata \
+  --datadir ${local.container_geth_datadir} \
   --nodiscover \
   --verbosity 5 \
   --networkid ${var.network_id} \
@@ -87,17 +87,17 @@ geth \
   --rpcaddr 0.0.0.0 \
   --rpcport ${var.geth_networking[count.index].port.http.internal} \
   --rpcapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum,${var.consensus} \
-%{ if var.geth.container.port.ws != -1 ~}
+%{if var.geth.container.port.ws != -1~}
   --ws \
   --wsaddr 0.0.0.0 \
   --wsport ${var.geth.container.port.ws} \
   --wsapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum,${var.consensus} \
-%{ endif ~}
+%{endif~}
   --port ${var.geth_networking[count.index].port.p2p} \
   --permissioned \
   --ethstats "Node${count.index + 1}:${var.ethstats_secret}@${var.ethstats_ip}:${var.ethstats.container.port}" \
   --unlock 0 \
-  --password /data/qdata/${var.password_file_name} ${var.additional_geth_args} \
+  --password ${local.container_geth_datadir}/${var.password_file_name} ${var.additional_geth_args} \
   ${var.consensus == "istanbul" ? "--istanbul.blockperiod 1 --syncmode full --mine --minerthreads 1" : format("--raft --raftport %d", var.geth_networking[count.index].port.raft)}
 EOF
   }

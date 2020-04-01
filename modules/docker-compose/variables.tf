@@ -3,7 +3,7 @@ variable "network_name" {
 }
 
 variable "additional_geth_args" {
-  default = ""
+  default     = ""
   description = "Additional geth args for all nodes"
 }
 
@@ -25,7 +25,7 @@ variable "node_keys_hex" {
 variable "geth" {
   type = object({
     container = object({
-      image = string
+      image = object({ name = string, local = bool })
       port  = object({ raft = number, p2p = number, http = number, ws = number })
     })
     host = object({
@@ -38,7 +38,7 @@ variable "geth" {
 variable "tessera" {
   type = object({
     container = object({
-      image = string
+      image = object({ name = string, local = bool })
       port  = object({ thirdparty = number, p2p = number })
     })
     host = object({
@@ -77,12 +77,18 @@ variable "tm_networking" {
 
 variable "ethstats" {
   type = object({
-    container = object({ image = string, port = number })
-    host      = object({ port = number })
+    container = object({
+      image = object({ name = string, local = bool })
+      port  = number
+    })
+    host = object({ port = number })
   })
   default = {
-    container = { image = "puppeth/ethstats:latest", port = 3000 }
-    host      = { port = 3000 }
+    container = {
+      image = { name = "puppeth/ethstats:latest", local = false },
+      port  = 3000
+    }
+    host = { port = 3000 }
   }
 }
 
