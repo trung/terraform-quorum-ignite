@@ -22,7 +22,7 @@ variable "geth" {
       port  = { raft = 50400, p2p = 21000, http = 8545, ws = -1 }
     }
     host = {
-      port = { http_start = 21000, ws_start = -1 }
+      port = { http_start = 22000, ws_start = -1 }
     }
   }
   description = "geth Docker container configuration "

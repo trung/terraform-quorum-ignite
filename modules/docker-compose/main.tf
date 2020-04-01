@@ -105,7 +105,7 @@ services:
       - ${format("%d:%d", var.geth.host.port.ws_start + i, var.geth.container.port.ws)}
 %{ endif ~}
     volumes:
-      - vol${i}:/data
+      - ${var.network_name}-vol${i}:/data
       - .${trimprefix(element(var.geth_datadirs, i), var.output_directory)}:${local.container_qdata_dir}
       - .${trimprefix(element(var.tessera_datadirs, i), var.output_directory)}:${local.container_tm_dir}
     depends_on:
@@ -131,7 +131,7 @@ services:
     ports:
       - ${format("%d:%d", var.tessera.host.port.thirdparty_start + i, var.tessera.container.port.thirdparty)}
     volumes:
-      - vol${i}:/data
+      - ${var.network_name}-vol${i}:/data
       - .${trimprefix(element(var.tessera_datadirs, i), var.output_directory)}:${local.container_tm_dir}
     networks:
       ${var.network_name}-net:
@@ -166,7 +166,7 @@ networks:
       - subnet: ${var.network_cidr}
 volumes:
 %{for i in local.node_indices~}
-  "vol${i}":
+  "${var.network_name}-vol${i}":
 %{endfor~}
 EOF
 }
