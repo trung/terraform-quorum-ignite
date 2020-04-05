@@ -52,12 +52,12 @@ x-quorum-def:
         --rpcaddr 0.0.0.0 \
         --rpcport ${var.geth.container.port.http} \
         --rpcapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum,${var.consensus} \
-%{ if var.geth.container.port.ws != -1 ~}
+%{if var.geth.container.port.ws != -1~}
         --ws \
         --wsaddr 0.0.0.0 \
         --wsport ${var.geth.container.port.ws} \
         --wsapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum,${var.consensus} \
-%{ endif ~}
+%{endif~}
         --port ${var.geth.container.port.p2p} \
         --permissioned \
         --ethstats "Node$$NODE_ID:${var.ethstats_secret}@${var.ethstats_ip}:${var.ethstats.container.port}" \
@@ -101,9 +101,9 @@ services:
     hostname: node${i}
     ports:
       - ${format("%d:%d", var.geth.host.port.http_start + i, var.geth.container.port.http)}
-%{ if var.geth.container.port.ws != -1 ~}
+%{if var.geth.container.port.ws != -1~}
       - ${format("%d:%d", var.geth.host.port.ws_start + i, var.geth.container.port.ws)}
-%{ endif ~}
+%{endif~}
     volumes:
       - ${var.network_name}-vol${i}:/data
       - .${trimprefix(element(var.geth_datadirs, i), var.output_directory)}:${local.container_qdata_dir}

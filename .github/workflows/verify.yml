@@ -29,7 +29,7 @@ jobs:
           wget https://releases.hashicorp.com/terraform/${{ env.TERRAFORM_VERSION }}/terraform_${{ env.TERRAFORM_VERSION }}_linux_amd64.zip -O bin/terraform.zip
           unzip bin/terraform.zip -d bin/
           bin="$(pwd)/bin"
-          wget https://github.com/terraform-providers/terraform-provider-quorum/releases/download/v1.0.0-beta.1/terraform-provider-quorum_1.0.0-beta.1_linux_amd64.zip -O provider.zip
+          wget https://dl.bintray.com/quorumengineering/terraform/terraform-provider-quorum/v1.0.0-beta.1/terraform-provider-quorum_1.0.0-beta.1_linux_amd64.zip -O provider.zip -q
           unzip provider.zip -d terraform.d/plugins/linux_amd64/
           echo "::add-path::$bin"
       - name: 'Terraform Init, Format and Validate'
@@ -172,7 +172,8 @@ jobs:
             const commit = "${{ github.sha }}".substr(0, 6)
             var pr = ""
             for (p of wf_run.data.pull_requests) {
-              pr += ",<"+ p.url + "|#" + p.number + ">"
+              const pull_response = await github.request(p.url)
+              pr += ",<"+ pull_response.data.html_url + "|PR #" + p.number + ">"
             }
             if (pr != "") {
               pr = "for " + pr.substr(1)

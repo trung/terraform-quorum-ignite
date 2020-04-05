@@ -1,7 +1,10 @@
 locals {
-  number_of_nodes        = 4
-  container_geth_datadir = "/data/qdata"
-  container_tm_datadir   = "/data/tm"
+  number_of_nodes                = 4
+  container_geth_datadir         = "/data/qdata"
+  container_tm_datadir           = "/data/tm"
+  container_geth_datadir_mounted = "/data/qdata-mount"
+  container_tm_datadir_mounted   = "/data/tm-mount"
+  container_tm_ipc_file          = "/data/tm.ipc"
 }
 
 resource "docker_network" "quorum" {

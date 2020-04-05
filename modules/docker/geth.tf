@@ -4,6 +4,8 @@ resource "docker_container" "geth" {
   image    = docker_image.geth.name
   hostname = format("node%d", count.index)
   restart  = "no"
+  must_run = var.start_quorum
+  start    = var.start_quorum
   ports {
     internal = var.geth.container.port.p2p
   }
@@ -22,12 +24,8 @@ resource "docker_container" "geth" {
     volume_name    = docker_volume.shared_volume[count.index].name
   }
   volumes {
-    container_path = local.container_geth_datadir
+    container_path = local.container_geth_datadir_mounted
     host_path      = var.geth_datadirs[count.index]
-  }
-  volumes {
-    container_path = local.container_tm_datadir
-    host_path      = var.tessera_datadirs[count.index]
   }
   depends_on = [docker_container.ethstats]
   networks_advanced {
@@ -35,7 +33,7 @@ resource "docker_container" "geth" {
     ipv4_address = var.geth_networking[count.index].ip.private
     aliases      = [format("node%d", count.index)]
   }
-  env = ["PRIVATE_CONFIG=${local.container_tm_datadir}/tm.ipc"]
+  env = ["PRIVATE_CONFIG=${local.container_tm_ipc_file}"]
   healthcheck {
     test         = ["CMD", "nc", "-vz", "localhost", var.geth_networking[count.index].port.http.internal]
     interval     = "3s"
@@ -47,12 +45,20 @@ resource "docker_container" "geth" {
     "/bin/sh",
     "-c",
     <<RUN
-    ${local.container_geth_datadir}/wait-for-tessera.sh
-    ${local.container_geth_datadir}/start-geth.sh
+if [ "$ALWAYS_REFRESH" == "true" ]; then
+  echo "Deleting ${local.container_geth_datadir} to refresh with original datadir"
+  rm -rf ${local.container_geth_datadir}
+fi
+if [ ! -d "${local.container_geth_datadir}" ]; then
+  echo "Copying mounted datadir to ${local.container_geth_datadir}"
+  cp -r ${local.container_geth_datadir_mounted} ${local.container_geth_datadir}
+fi
+${local.container_geth_datadir_mounted}/wait-for-tessera.sh
+${local.container_geth_datadir_mounted}/start-geth.sh
 RUN
   ]
   upload {
-    file       = "${local.container_geth_datadir}/wait-for-tessera.sh"
+    file       = "${local.container_geth_datadir_mounted}/wait-for-tessera.sh"
     executable = true
     content    = <<EOF
 URL="${var.tm_networking[count.index].ip.private}:${var.tessera.container.port.p2p}/upcheck"
@@ -73,7 +79,7 @@ EOF
   }
 
   upload {
-    file       = "${local.container_geth_datadir}/start-geth.sh"
+    file       = "${local.container_geth_datadir_mounted}/start-geth.sh"
     executable = true
     content    = <<EOF
 geth \
@@ -97,8 +103,8 @@ geth \
   --permissioned \
   --ethstats "Node${count.index + 1}:${var.ethstats_secret}@${var.ethstats_ip}:${var.ethstats.container.port}" \
   --unlock 0 \
-  --password ${local.container_geth_datadir}/${var.password_file_name} ${var.additional_geth_args} \
-  ${var.consensus == "istanbul" ? "--istanbul.blockperiod 1 --syncmode full --mine --minerthreads 1" : format("--raft --raftport %d", var.geth_networking[count.index].port.raft)}
+  --password ${local.container_geth_datadir}/${var.password_file_name} \
+  ${var.consensus == "istanbul" ? "--istanbul.blockperiod 1 --syncmode full --mine --minerthreads 1" : format("--raft --raftport %d", var.geth_networking[count.index].port.raft)} ${var.additional_geth_args} $ADDITIONAL_GETH_ARGS
 EOF
   }
 }

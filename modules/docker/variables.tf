@@ -92,6 +92,14 @@ variable "ethstats" {
   }
 }
 
+variable "start_quorum" {
+  default = true
+}
+
+variable "start_tessera" {
+  default = true
+}
+
 variable "consensus" {}
 
 variable "network_id" {}
