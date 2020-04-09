@@ -45,6 +45,8 @@ resource "docker_container" "geth" {
     "/bin/sh",
     "-c",
     <<RUN
+#Quorum${count.index + 1}
+
 if [ "$ALWAYS_REFRESH" == "true" ]; then
   echo "Deleting ${local.container_geth_datadir} to refresh with original datadir"
   rm -rf ${local.container_geth_datadir}

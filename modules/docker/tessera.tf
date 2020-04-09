@@ -38,6 +38,8 @@ resource "docker_container" "tessera" {
     "/bin/sh",
     "-c",
     <<EOF
+#Tessera${count.index + 1}
+
 if [ "$ALWAYS_REFRESH" == "true" ]; then
   echo "Deleting ${local.container_tm_datadir} to refresh with original datadir"
   rm -rf ${local.container_tm_datadir}
