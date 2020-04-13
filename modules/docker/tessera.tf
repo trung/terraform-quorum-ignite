@@ -7,6 +7,10 @@ resource "docker_container" "tessera" {
   publish_all_ports = false
   must_run          = var.start_tessera
   start             = var.start_tessera
+  labels {
+    label = "TesseraContainer"
+    value = count.index
+  }
   ports {
     internal = var.tessera.container.port.p2p
   }

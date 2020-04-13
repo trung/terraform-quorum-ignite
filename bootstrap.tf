@@ -1,7 +1,11 @@
 locals {
+  enode_urls = formatlist("\"enode://%s@%s:%d?discport=0&raftport=%d\"", quorum_bootstrap_node_key.nodekeys-generator[*].hex_node_id, var.geth_networking[*].ip.private, var.geth_networking[*].port.p2p, var.geth_networking[*].port.raft)
+
+  # metadata for network subjected to initial participants input
   network = {
-    hexNodeIds     = [for idx in local.node_indices : quorum_bootstrap_node_key.nodekeys-generator[idx].hex_node_id if lookup(local.quorum_initial_paticipants, idx, "false") == "true"]
-    nodePrivateIPs = [for idx in local.node_indices : var.geth_networking[idx].ip.private if lookup(local.quorum_initial_paticipants, idx, "false") == "true"]
+    hexNodeIds      = [for idx in local.node_indices : quorum_bootstrap_node_key.nodekeys-generator[idx].hex_node_id if lookup(local.quorum_initial_paticipants, idx, "false") == "true"]
+    geth_networking = [for idx in local.node_indices : var.geth_networking[idx] if lookup(local.quorum_initial_paticipants, idx, "false") == "true"]
+    enode_urls      = [for idx in local.node_indices : local.enode_urls[idx] if lookup(local.quorum_initial_paticipants, idx, "false") == "true"]
   }
 }
 
@@ -61,7 +65,7 @@ data "quorum_bootstrap_genesis_mixhash" "this" {
 }
 
 resource "quorum_bootstrap_istanbul_extradata" "this" {
-  istanbul_addresses = quorum_bootstrap_node_key.nodekeys-generator[*].istanbul_address
+  istanbul_addresses = [ for idx in local.node_indices : quorum_bootstrap_node_key.nodekeys-generator[idx].istanbul_address if lookup(local.istanbul_validators, idx, "false") == "true" ]
 }
 
 resource "local_file" "genesis-file" {
@@ -111,7 +115,7 @@ resource "quorum_bootstrap_data_dir" "datadirs-generator" {
 resource "local_file" "static-nodes" {
   count    = local.number_of_nodes
   filename = format("%s/static-nodes.json", quorum_bootstrap_data_dir.datadirs-generator[count.index].data_dir_abs)
-  content  = "[${join(",", formatlist("\"enode://%s@%s:%d?discport=0&raftport=%d\"", local.network.hexNodeIds, local.network.nodePrivateIPs, var.geth_networking[*].port.p2p, var.geth_networking[*].port.raft))}]"
+  content  = "[${join(",", local.network.enode_urls)}]"
 }
 
 resource "local_file" "permissioned-nodes" {

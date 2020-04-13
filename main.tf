@@ -25,6 +25,10 @@ locals {
     { for id in local.node_indices : id => "true" }, // default to true for all
     { for id in var.exclude_initial_nodes : id => "false" }
   )
+  istanbul_validators = merge(
+    { for id in local.node_indices : id => "true" }, // default to true for all
+    { for id in var.non_validator_nodes : id => "false" }
+  )
 }
 
 resource "random_string" "network-name" {
@@ -42,6 +46,10 @@ quorum:
   nodes:
 %{for i in data.null_data_source.meta[*].inputs.idx~}
     ${format("Node%d:", i + 1)}
+%{ if var.concensus == "istanbul" ~}
+      istanbul-validator-id: ${quorum_bootstrap_node_key.nodekeys-generator[i].istanbul_address}
+%{ endif ~}
+      enode-url: ${local.enode_urls[i]}
       account-aliases:
 %{for idx, k in local.named_accounts_alloc[i]~}
         ${k}: ${element(quorum_bootstrap_keystore.accountkeys-generator[i].account.*.address, idx)}

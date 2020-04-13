@@ -4,8 +4,12 @@ resource "docker_container" "geth" {
   image    = docker_image.geth.name
   hostname = format("node%d", count.index)
   restart  = "no"
-  must_run = var.start_quorum
-  start    = var.start_quorum
+  must_run = local.must_start[count.index]
+  start    = local.must_start[count.index]
+  labels {
+    label = "QuorumContainer"
+    value = count.index
+  }
   ports {
     internal = var.geth.container.port.p2p
   }
@@ -102,7 +106,6 @@ geth \
   --wsapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum,${var.consensus} \
 %{endif~}
   --port ${var.geth_networking[count.index].port.p2p} \
-  --permissioned \
   --ethstats "Node${count.index + 1}:${var.ethstats_secret}@${var.ethstats_ip}:${var.ethstats.container.port}" \
   --unlock 0 \
   --password ${local.container_geth_datadir}/${var.password_file_name} \

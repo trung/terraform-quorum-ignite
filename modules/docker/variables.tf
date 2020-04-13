@@ -100,6 +100,11 @@ variable "start_tessera" {
   default = true
 }
 
+variable "exclude_initial_nodes" {
+  default = []
+  description = "Exclude nodes (0-based index) from initial list of participants. E.g: [3, 4, 5] to exclude Node4, Node5, and Node6 from the initial participants of the network"
+}
+
 variable "consensus" {}
 
 variable "network_id" {}

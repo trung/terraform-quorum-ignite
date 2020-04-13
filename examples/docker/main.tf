@@ -17,11 +17,13 @@ module "helper" {
 }
 
 module "network" {
-  source          = "../../"
-  concensus       = module.helper.consensus
-  network_name    = var.network_name
-  geth_networking = module.helper.geth_networking
-  tm_networking   = module.helper.tm_networking
+  source                = "../../"
+  concensus             = module.helper.consensus
+  network_name          = var.network_name
+  geth_networking       = module.helper.geth_networking
+  tm_networking         = module.helper.tm_networking
+
+  non_validator_nodes = [3]
 }
 
 module "docker" {

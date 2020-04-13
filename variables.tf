@@ -64,5 +64,10 @@ EOT
 
 variable "exclude_initial_nodes" {
   default     = []
-  description = "Exclude nodes from initial list of participants. E.g: [4, 5, 6] to exclude 4,5,6 from the initial participants of the network"
+  description = "Exclude nodes (0-based index) from initial list of participants. E.g: [3, 4, 5] to exclude Node4, Node5, and Node6 from the initial participants of the network"
+}
+
+variable "non_validator_nodes" {
+  default = []
+  description = "Exclude nodes (0-based index) as validators. Default all nodes are validators"
 }

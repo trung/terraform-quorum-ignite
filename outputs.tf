@@ -29,3 +29,7 @@ output "network_name" {
 output "application_yml_file" {
   value = local_file.configuration.filename
 }
+
+output "exclude_initial_nodes" {
+  value = var.exclude_initial_nodes
+}

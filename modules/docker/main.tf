@@ -1,10 +1,17 @@
 locals {
-  number_of_nodes                = 4
+  number_of_nodes                = length(var.geth_datadirs)
   container_geth_datadir         = "/data/qdata"
   container_tm_datadir           = "/data/tm"
   container_geth_datadir_mounted = "/data/qdata-mount"
   container_tm_datadir_mounted   = "/data/tm-mount"
   container_tm_ipc_file          = "/data/tm.ipc"
+
+  node_indices              = range(local.number_of_nodes) // 0-based node index
+  quorum_initial_paticipants = merge(
+    { for id in local.node_indices : id => "true" }, // default to true for all
+    { for id in var.exclude_initial_nodes : id => "false" }
+  )
+  must_start = [ for idx in local.node_indices : tobool(lookup(local.quorum_initial_paticipants, idx, "false")) && tobool(var.start_quorum) ]
 }
 
 resource "docker_network" "quorum" {
