@@ -75,6 +75,18 @@ variable "tm_networking" {
   description = "Networking configuration for `tessera` nodes in the network. Number of items must match `geth_networking`"
 }
 
+variable "additional_geth_env" {
+  type = map(string)
+  default = {}
+  description = "Additional environment variables for each `geth` node in the network, provided as a key/value map.  The correct PRIVATE_CONFIG is already set by this module, so any PRIVATE_CONFIG value provided in this map will be ignored."
+}
+
+variable "tm_env" {
+  type = map(string)
+  default = {}
+  description = "Environment variables for each `tessera` node in the network, provided as a key/value map."
+}
+
 variable "ethstats" {
   type = object({
     container = object({
@@ -100,10 +112,10 @@ variable "consensus" {}
 
 variable "network_id" {}
 
-variable "password_file_name" {}
-
 variable "ethstats_secret" {}
 
 variable "ethstats_ip" {}
+
+variable "password_file_name" {}
 
 variable "network_cidr" {}

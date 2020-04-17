@@ -12,6 +12,12 @@ locals {
     { for id in var.exclude_initial_nodes : id => "false" }
   )
   must_start = [ for idx in local.node_indices : tobool(lookup(local.quorum_initial_paticipants, idx, "false")) && tobool(var.start_quorum) ]
+
+  unchangeable_geth_env = {
+    PRIVATE_CONFIG = local.container_tm_ipc_file
+  }
+  geth_env = [for k, v in merge(var.additional_geth_env, local.unchangeable_geth_env) : "${k}=${v}"]
+  tm_env = [for k, v in var.tm_env : "${k}=${v}"]
 }
 
 resource "docker_network" "quorum" {

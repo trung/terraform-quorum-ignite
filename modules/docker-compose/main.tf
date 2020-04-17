@@ -7,6 +7,20 @@ locals {
   geth_consensus_args = [for idx in local.node_indices :
     (var.consensus == "istanbul" ? "--istanbul.blockperiod 1 --syncmode full --mine --minerthreads 1" : "--raft --raftport ${var.geth_networking[idx].port.raft}")
   ]
+
+  unchangeable_geth_env = {
+    "PRIVATE_CONFIG" = local.container_tm_ipc
+  }
+  geth_env = [for k, v in merge(var.additional_geth_env, local.unchangeable_geth_env) : "${k}=${v}"]
+  geth_env_str = join("\n", [for e in local.geth_env : "      - ${e}"])
+  tm_env = [for k, v in var.tm_env : "${k}=${v}"]
+  tm_env_str = length(local.tm_env) == 0 ? "" : <<END
+    environment:
+%{ for e in local.tm_env ~}
+      - ${e}
+%{ endfor ~}
+END
+
 }
 
 resource "local_file" "docker-compose" {
@@ -117,7 +131,7 @@ services:
         aliases:
           - node${i}
     environment:
-      - PRIVATE_CONFIG=${local.container_tm_ipc}
+${local.geth_env_str}
       - GETH_ARGS=${local.geth_consensus_args[i]}
       - TXMANAGER_IP=${var.tm_networking[i].ip.private}
       - NODE_ID=${format("%d", i + 1)}
@@ -136,6 +150,7 @@ services:
     networks:
       ${var.network_name}-net:
         ipv4_address: ${var.tm_networking[i].ip.private}
+${local.tm_env_str}
 %{endfor~}
   ethstats:
     container_name: ${var.network_name}-ethstats
