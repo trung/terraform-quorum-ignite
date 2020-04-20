@@ -41,7 +41,7 @@ x-quorum-def:
           sleep $$UDS_WAIT
         fi
       done
-      geth \
+      exec geth \
         --identity Node$$NODE_ID \
         --datadir $$DDIR \
         --nodiscover \
@@ -81,7 +81,7 @@ x-tx-manager-def:
     - -c
     - |
       rm -f ${local.container_tm_dir}/*.ipc
-      java -Xms128M -Xmx128M \
+      exec java -Xms128M -Xmx128M \
         -jar /tessera/tessera-app.jar \
         --override jdbc.url="jdbc:h2:${local.container_tm_dir}/db;MODE=Oracle;TRACE_LEVEL_SYSTEM_OUT=0" \
         --override serverConfigs[1].serverAddress="unix:${local.container_tm_ipc}" \

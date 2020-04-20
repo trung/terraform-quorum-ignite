@@ -53,7 +53,7 @@ if [ ! -d "${local.container_tm_datadir}" ]; then
   cp -r ${local.container_tm_datadir_mounted} ${local.container_tm_datadir}
 fi
 rm -f ${local.container_tm_ipc_file}
-java -Xms128M -Xmx128M \
+exec java -Xms128M -Xmx128M \
   -jar /tessera/tessera-app.jar \
   --override jdbc.url="jdbc:h2:${local.container_tm_datadir}/db;MODE=Oracle;TRACE_LEVEL_SYSTEM_OUT=0" \
   --override serverConfigs[1].serverAddress="unix:${local.container_tm_ipc_file}" \

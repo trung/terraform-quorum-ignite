@@ -60,13 +60,15 @@ if [ ! -d "${local.container_geth_datadir}" ]; then
   cp -r ${local.container_geth_datadir_mounted} ${local.container_geth_datadir}
 fi
 ${local.container_geth_datadir_mounted}/wait-for-tessera.sh
-${local.container_geth_datadir_mounted}/start-geth.sh
+exec ${local.container_geth_datadir_mounted}/start-geth.sh
 RUN
   ]
   upload {
     file       = "${local.container_geth_datadir_mounted}/wait-for-tessera.sh"
     executable = true
     content    = <<EOF
+#!/bin/sh
+
 URL="${var.tm_networking[count.index].ip.private}:${var.tessera.container.port.p2p}/upcheck"
 
 UDS_WAIT=10
@@ -88,7 +90,9 @@ EOF
     file       = "${local.container_geth_datadir_mounted}/start-geth.sh"
     executable = true
     content    = <<EOF
-geth \
+#!/bin/sh
+
+exec geth \
   --identity Node${count.index + 1} \
   --datadir ${local.container_geth_datadir} \
   --nodiscover \
