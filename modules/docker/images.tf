@@ -5,7 +5,7 @@ data "docker_registry_image" "geth" {
 
 resource "docker_image" "geth" {
   name          = var.geth.container.image.name
-  keep_locally  = true
+  keep_locally  = var.geth.container.image.local
   pull_triggers = [coalesce(join("", data.docker_registry_image.geth[*].sha256_digest), "static")]
 }
 
@@ -16,7 +16,7 @@ data "docker_registry_image" "tessera" {
 
 resource "docker_image" "tessera" {
   name          = var.tessera.container.image.name
-  keep_locally  = true
+  keep_locally  = var.tessera.container.image.local
   pull_triggers = [coalesce(join("", data.docker_registry_image.tessera[*].sha256_digest), "static")]
 }
 
