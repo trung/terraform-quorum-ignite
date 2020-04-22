@@ -1,5 +1,5 @@
 locals {
-  number_of_nodes                = length(var.geth_datadirs)
+  number_of_nodes                = length(var.node_keys_hex)
   container_geth_datadir         = "/data/qdata"
   container_tm_datadir           = "/data/tm"
   container_geth_datadir_mounted = "/data/qdata-mount"
