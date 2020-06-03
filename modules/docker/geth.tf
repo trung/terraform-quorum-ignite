@@ -37,7 +37,7 @@ resource "docker_container" "geth" {
     ipv4_address = var.geth_networking[count.index].ip.private
     aliases      = [format("node%d", count.index)]
   }
-  env = ["PRIVATE_CONFIG=${local.container_tm_ipc_file}"]
+  env = local.geth_env
   healthcheck {
     test         = ["CMD", "nc", "-vz", "localhost", var.geth_networking[count.index].port.http.internal]
     interval     = "3s"

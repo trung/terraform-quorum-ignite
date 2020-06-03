@@ -32,4 +32,4 @@ my-network/
 
 Two submodules: `docker` and `docker-compose` are used to spin up a Quorum network in Docker.
 
-Refer to [examples](examples) folder for getting started with this module
+Refer to [examples](https://github.com/trung/terraform-quorum-ignite/examples) folder for getting started with this module
